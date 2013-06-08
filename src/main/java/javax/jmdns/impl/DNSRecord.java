@@ -176,7 +176,7 @@ public abstract class DNSRecord extends DNSEntry {
             super(name, DNSRecordType.TYPE_A, recordClass, unique, ttl, addr);
         }
 
-        IPv4Address(String name, DNSRecordClass recordClass, boolean unique, int ttl, byte[] rawAddress) {
+        public IPv4Address(String name, DNSRecordClass recordClass, boolean unique, int ttl, byte[] rawAddress) {
             super(name, DNSRecordType.TYPE_A, recordClass, unique, ttl, rawAddress);
         }
 
@@ -214,11 +214,11 @@ public abstract class DNSRecord extends DNSEntry {
 
     public static class IPv6Address extends Address {
 
-        IPv6Address(String name, DNSRecordClass recordClass, boolean unique, int ttl, InetAddress addr) {
+        public IPv6Address(String name, DNSRecordClass recordClass, boolean unique, int ttl, InetAddress addr) {
             super(name, DNSRecordType.TYPE_AAAA, recordClass, unique, ttl, addr);
         }
 
-        IPv6Address(String name, DNSRecordClass recordClass, boolean unique, int ttl, byte[] rawAddress) {
+        public IPv6Address(String name, DNSRecordClass recordClass, boolean unique, int ttl, byte[] rawAddress) {
             super(name, DNSRecordType.TYPE_AAAA, recordClass, unique, ttl, rawAddress);
         }
 
@@ -419,6 +419,52 @@ public abstract class DNSRecord extends DNSEntry {
 
     }
 
+    public static class Authoritative extends DNSRecord {
+        String nameServer;
+        public Authoritative(String name, DNSRecordClass recordClass, boolean unique, int ttl, String ns){
+          super(name, DNSRecordType.TYPE_NS, recordClass, unique, ttl);
+          this.nameServer = ns;
+        }
+        @Override
+        void write(MessageOutputStream out) {
+          out.writeName(nameServer);
+        }
+
+        @Override
+        boolean sameValue(DNSRecord other) {
+          throw new UnsupportedOperationException("Not supported yet.");
+        }
+
+        @Override
+        boolean handleQuery(JmDNSImpl dns, long expirationTime) {
+          return false;//throw new UnsupportedOperationException("Not supported yet.");
+        }
+
+        @Override
+        boolean handleResponse(JmDNSImpl dns) {
+          return false;//throw new UnsupportedOperationException("Not supported yet.");
+        }
+
+        @Override
+        DNSOutgoing addAnswer(JmDNSImpl dns, DNSIncoming in, InetAddress addr, int port, DNSOutgoing out) throws IOException {
+          return out;//throw new UnsupportedOperationException("Not supported yet.");
+        }
+
+        @Override
+        public boolean isSingleValued() {
+          throw new UnsupportedOperationException("Not supported yet.");
+        }
+
+        @Override
+        public ServiceInfo getServiceInfo(boolean persistent) {
+          throw new UnsupportedOperationException("Not supported yet.");
+        }
+
+        @Override
+        public ServiceEvent getServiceEvent(JmDNSImpl dns) {
+          throw new UnsupportedOperationException("Not supported yet.");
+        }
+    }
     /**
      * Pointer record.
      */
