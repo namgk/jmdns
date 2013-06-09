@@ -13,7 +13,7 @@ import javax.jmdns.impl.constants.DNSConstants;
 
 /**
  * DNSMessage define a DNS message either incoming or outgoing.
- * 
+ *
  * @author Werner Randelshofer, Rick Blair, Pierre Frisch
  */
 public abstract class DNSMessage {
@@ -183,7 +183,7 @@ public abstract class DNSMessage {
 
     /**
      * Check if the message is truncated.
-     * 
+     *
      * @return true if the message was truncated
      */
     public boolean isTruncated() {
@@ -192,7 +192,7 @@ public abstract class DNSMessage {
 
     /**
      * Check if the message is a query.
-     * 
+     *
      * @return true is the message is a query
      */
     public boolean isQuery() {
@@ -201,7 +201,7 @@ public abstract class DNSMessage {
 
     /**
      * Check if the message is a response.
-     * 
+     *
      * @return true is the message is a response
      */
     public boolean isResponse() {
@@ -210,11 +210,19 @@ public abstract class DNSMessage {
 
     /**
      * Check if the message is empty
-     * 
+     *
      * @return true is the message is empty
      */
     public boolean isEmpty() {
         return (this.getNumberOfQuestions() + this.getNumberOfAnswers() + this.getNumberOfAuthorities() + this.getNumberOfAdditionals()) == 0;
+    }
+
+    public boolean isRefused(){
+        return (this.getFlags() & DNSConstants.FLAGS_RF) == DNSConstants.FLAGS_RF;
+    }
+
+    public boolean isNotExist(){
+        return (this.getFlags() & DNSConstants.FLAGS_NE) == DNSConstants.FLAGS_NE;
     }
 
     /**
@@ -249,7 +257,7 @@ public abstract class DNSMessage {
 
     /**
      * Debugging.
-     * 
+     *
      * @param data
      * @return data dump
      */

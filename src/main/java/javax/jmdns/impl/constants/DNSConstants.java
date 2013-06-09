@@ -31,10 +31,13 @@ public final class DNSConstants {
     public static final int    FLAGS_TC                       = 0x0200;                                                       // Truncated
     public static final int    FLAGS_RD                       = 0x0100;                                                       // Recursion desired
     public static final int    FLAGS_RA                       = 0x8000;                                                       // Recursion available
+    public static final int    FLAGS_RF                       = 0x0005;                                                       // Refuse
+    public static final int    FLAGS_NE                       = 0x0003;                                                       // Not existed
 
     public static final int    FLAGS_Z                        = 0x0040;                                                       // Zero
     public static final int    FLAGS_AD                       = 0x0020;                                                       // Authentic data
     public static final int    FLAGS_CD                       = 0x0010;                                                       // Checking disabled
+
 
     // Time Intervals for various functions
 

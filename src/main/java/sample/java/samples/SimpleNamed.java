@@ -86,32 +86,36 @@ public class SimpleNamed {
 
     private void handleQuery(DNSIncoming msg) {
 
-      ArrayList<DNSRecord> ansRec = new ArrayList<DNSRecord>();
-      ArrayList<DNSRecord> authRec = new ArrayList<DNSRecord>();
-      ArrayList<DNSRecord> addtnRec = new ArrayList<DNSRecord>();
+      ArrayList<DNSRecord> ansRcrdList = new ArrayList<DNSRecord>();
+      ArrayList<DNSRecord> authRcrdList = new ArrayList<DNSRecord>();
+      ArrayList<DNSRecord> addtnRcrdList = new ArrayList<DNSRecord>();
 
       DNSOutgoing out = new DNSOutgoing(DNSConstants.FLAGS_QR_RESPONSE | DNSConstants.FLAGS_AA, false, msg.getSenderUDPPayload());
 
       Collection<? extends DNSQuestion> questions = msg.getQuestions();
-
       Iterator i = questions.iterator();
       while (i.hasNext()) {
         DNSQuestion aQuestion = (DNSQuestion) i.next();
         String requestedName = aQuestion.getName();
 
-        if (aQuestion.getRecordType() == DNSRecordType.TYPE_A) {
-          ansRec.add(createAnsRecord(requestedName, false));
-          authRec.add(createAuthRecord(false));
+        if (aQuestion.getRecordType() == DNSRecordType.TYPE_PTR) {
+          ansRcrdList.add(new DNSRecord.Pointer(AUTHORITATIVE_NAME_ADDR_REVERSE, DNSRecordClass.CLASS_IN, true, DNSConstants.DNS_TTL, AUTHORITATIVE_DOMAIN));
+          authRcrdList.add(createAuthRecord(true));
+          break;
+        } else {
+          if (!((requestedName.endsWith("." + AUTHORITATIVE_DOMAIN)) || (requestedName.equals(AUTHORITATIVE_DOMAIN)))) {
+            out = new DNSOutgoing(DNSConstants.FLAGS_QR_RESPONSE | DNSConstants.FLAGS_RF, false, msg.getSenderUDPPayload());
+            break;
+          }
 
-        } else if (aQuestion.getRecordType() == DNSRecordType.TYPE_AAAA) {
-          ansRec.add(createAnsRecord(requestedName, true));
-          authRec.add(createAuthRecord(false));
-
-        } else if (aQuestion.getRecordType() == DNSRecordType.TYPE_PTR) {
-          ansRec.add(new DNSRecord.Pointer(AUTHORITATIVE_NAME_ADDR_REVERSE, DNSRecordClass.CLASS_IN, true, DNSConstants.DNS_TTL, AUTHORITATIVE_DOMAIN));
-          authRec.add(createAuthRecord(true));
+          DNSRecord ansRcrd = createAnsRecord(requestedName, (aQuestion.getRecordType() == DNSRecordType.TYPE_A) ? false : true);
+          if (ansRcrd != null) {
+            ansRcrdList.add(ansRcrd);
+          }
+          authRcrdList.add(createAuthRecord(false));
         }
 
+        // Attach questions to response
         try {
           out.addQuestion(aQuestion);
         } catch (IOException ex) {
@@ -119,24 +123,32 @@ public class SimpleNamed {
         }
       }
 
-      addtnRec.add(createAddtnRecord(AUTHORITATIVE_NAME_SERVER, AUTHORITATIVE_NAME_SERVER_ADDR, false));
-      addtnRec.add(createAddtnRecord(AUTHORITATIVE_NAME_SERVER, AUTHORITATIVE_NAME_SERVER_ADDR6, true));
+      if (!out.isRefused()) {
+        // Acceptable, in-domain request
+        if (ansRcrdList.isEmpty()) {
+          // Not exist
+          out = new DNSOutgoing(DNSConstants.FLAGS_QR_RESPONSE | DNSConstants.FLAGS_NE, false, msg.getSenderUDPPayload());
+        } else {
+          addtnRcrdList.add(createAddtnRecord(AUTHORITATIVE_NAME_SERVER, AUTHORITATIVE_NAME_SERVER_ADDR, false));
+          addtnRcrdList.add(createAddtnRecord(AUTHORITATIVE_NAME_SERVER, AUTHORITATIVE_NAME_SERVER_ADDR6, true));
 
-      try {
-        for (DNSRecord r : ansRec) {
-          out.addAnswer(msg, r);
+          try {
+            for (DNSRecord r : ansRcrdList) {
+              out.addAnswer(msg, r);
+            }
+            for (DNSRecord r : authRcrdList) {
+              out.addAuthorativeAnswer(r);
+            }
+            for (DNSRecord r : addtnRcrdList) {
+              out.addAdditionalAnswer(msg, r);
+            }
+          } catch (IOException ex) {
+            Logger.getLogger(SimpleNamed.class.getName()).log(Level.SEVERE, null, ex);
+          }
         }
-        for (DNSRecord r : authRec) {
-          out.addAuthorativeAnswer(r);
-        }
-        for (DNSRecord r : addtnRec) {
-          out.addAdditionalAnswer(msg, r);
-        }
-        out.setId(msg.getId());
-      } catch (IOException ex) {
-        Logger.getLogger(SimpleNamed.class.getName()).log(Level.SEVERE, null, ex);
       }
-
+      
+      out.setId(msg.getId());
       byte[] message = out.data();
       DatagramPacket packet = new DatagramPacket(message, message.length, msg.getPacket().getAddress(), msg.getPacket().getPort());
       try {
@@ -147,14 +159,27 @@ public class SimpleNamed {
     }
 
     public DNSRecord createAnsRecord(String requestedName, boolean ipv6) {
-      if (!ipv6) {
-        // Look up addr from requestedName
-        String resolvedAddr = "143.248.55.187";//"2002:8ff8:3853::8ff8:3853"
-        return new DNSRecord.IPv4Address(requestedName, DNSRecordClass.CLASS_IN, DNSRecordClass.UNIQUE, DNSConstants.DNS_TTL, getByAddress(resolvedAddr));
+      DNSRecord result = null;
+      String resolvedAddr = null;
+      String resolvedAddr6 = null;
+      // look up
+      if (requestedName.equals("facebook.com.")) {
+        resolvedAddr = "77.77.77.77";
+        resolvedAddr6 = "2002:8ff8:3853::7777:7777";
+      } else if (requestedName.equals("google.com.")) {
+        resolvedAddr = "90.99.1.3";
+        resolvedAddr6 = "2002:8ff8:3853::9009:9999";
+      } else if (requestedName.equals("ipv6.com.")) {
+        resolvedAddr6 = "2002:8ff8:3853::1426:1426";
       }
-      // Look up addr from requestedName
-      String resolvedAddr = "2002:8ff8:3853::8ff8:3853";
-      return new DNSRecord.IPv6Address(requestedName, DNSRecordClass.CLASS_IN, DNSRecordClass.UNIQUE, DNSConstants.DNS_TTL, getByAddress(resolvedAddr));
+      if ((!ipv6) && (resolvedAddr != null)) {
+        result = new DNSRecord.IPv4Address(requestedName, DNSRecordClass.CLASS_IN, DNSRecordClass.UNIQUE, DNSConstants.DNS_TTL, getByAddress(resolvedAddr));
+      } else if (ipv6 && (resolvedAddr6 != null)) {
+        result = new DNSRecord.IPv6Address(requestedName, DNSRecordClass.CLASS_IN, DNSRecordClass.UNIQUE, DNSConstants.DNS_TTL, getByAddress(resolvedAddr6));
+      }
+
+      return result;
+
     }
 
     public DNSRecord createAuthRecord(boolean reverse) {
